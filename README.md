@@ -7,7 +7,7 @@ The translation to python was done by Andrew Port and was supported by
 [Fish Forever](http://www.fishforever.org/) project.
 
 ## Changes from the original algorithm:
-    * A (in-code) parameter `MIN_RELATIVE_SQUARE_SIZE` has been added as a
+    * An (in-code) parameter `MIN_RELATIVE_SQUARE_SIZE` has been added as a
     work-around for an issue where the algorithm would choke on images where
     the ColorChecker was smaller than a certain hard-coded size relative to
     the image dimensions.

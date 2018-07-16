@@ -323,8 +323,8 @@ def find_squares(img):
 
 
 def maybe_patch(square, patch_size, rtol=.25):
-    cw = abs(np.linalg.norm(square[0] - square[1]) -  patch_size) < rtol*patch_size
-    ch = abs(np.linalg.norm(square[0] - square[-1]) - patch_size) < rtol*patch_size
+    cw = abs(np.linalg.norm(square[0] - square[1]) - patch_size) < rtol*patch_size
+    ch = abs(np.linalg.norm(square[0] - square[3]) - patch_size) < rtol*patch_size
     return cw and ch
 
 

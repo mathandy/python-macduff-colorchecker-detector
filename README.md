@@ -1,14 +1,28 @@
 # Python-Macduff
-This is a Python port of [Macduff](https://github.com/ryanfb/macduff), a tool for finding the Macbeth ColorChecker chart in an image.  
+This is a Python port of [Macduff](https://github.com/ryanfb/macduff), a tool
+for finding the Macbeth ColorChecker chart in an image.
 
-The translation to python was done by Andrew Port and was partially supported by [Rare](https://rare.org) as part of work done for the [Fish Forever](http://www.fishforever.org/) project.
+The translation to python was done by Andrew Port and was supported by
+[Rare](https://rare.org) as part of work done for the
+[Fish Forever](http://www.fishforever.org/) project.
 
 ## Changes from the original algorithm:
-    * A parameter `MIN_RELATIVE_SQUARE_SIZE` has been added as a work-around for an issue where the algorithm would choke on images where the ColorChecker was smaller than a certain hard-coded size relative to the image dimensions.
+    * A (in-code) parameter `MIN_RELATIVE_SQUARE_SIZE` has been added as a
+    work-around for an issue where the algorithm would choke on images where
+    the ColorChecker was smaller than a certain hard-coded size relative to
+    the image dimensions.
+
+    * An optional `patch_size` parameter has been added to give better results
+    when the approximate (within rtol=25%) pixel-width of the color patches is
+    known.
 
 ## Usage
   
-    $ python macduff.py test.jpg result.png > result.csv
+    # if pixel-width of color patches is unknown,  
+    $ python macduff.py examples/test.jpg result.png > result.csv  
+
+    # if pixel-width of color patches is known to be, e.g. 65,  
+    $ python macduff.py examples/test.jpg result.png 65 > result.csv  
 
 ## DESCRIPTION
 

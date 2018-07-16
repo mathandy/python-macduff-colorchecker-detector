@@ -209,11 +209,12 @@ def find_colorchecker(boxes, image, original_image, debug_image=None):
         cv2.imwrite('debug_passport_box.png', image_copy)
 
     (x, y), (w, h), a = passport_box
-    print("Box:\n"
-          "\tCenter: %f,%f\n"
-          "\tSize: %f,%f\n"
-          "\tAngle: %f\n" % (x, y, w, h, a),
-          file=stderr)
+    if DEBUG:
+        print("Box:\n"
+              "\tCenter: %f,%f\n"
+              "\tSize: %f,%f\n"
+              "\tAngle: %f\n" % (x, y, w, h, a),
+              file=stderr)
 
     if a < 0.0:
         rotated_box = True
@@ -223,7 +224,8 @@ def find_colorchecker(boxes, image, original_image, debug_image=None):
     d10 = dist2(box_corners[1], box_corners[0])
     d12 = dist2(box_corners[1], box_corners[2])
     if d10 < d12:
-        print("Box is upright, rotating\n", file=stderr)
+        if DEBUG:
+            print("Box is upright, rotating\n", file=stderr)
         box_corners = rotate_box(box_corners)
         h_spacing = d12/(MACBETH_WIDTH - 1)
         v_spacing = d10/(MACBETH_HEIGHT - 1)
@@ -239,12 +241,12 @@ def find_colorchecker(boxes, image, original_image, debug_image=None):
     v_mag = sqrt(1 + v_slope*v_slope)
     h_orientation = -1 if box_corners[0][0] < box_corners[1][0] else 1
     v_orientation = -1 if box_corners[0][1] < box_corners[3][1] else 1
-        
-    print("Spacing is %f %f\n" % (h_spacing, v_spacing), file=stderr)
-    print("Slope is %f %f\n" % (h_slope, v_slope), file=stderr)
 
     average_size = int(sum(min(box.size) for box in boxes) / len(boxes))
-    print("Average contained rect size is %d\n" % average_size, file=stderr)
+    if DEBUG:
+        print("Spacing is %f %f\n" % (h_spacing, v_spacing), file=stderr)
+        print("Slope is %f %f\n" % (h_slope, v_slope), file=stderr)
+        print("Average contained rect size is %d\n" % average_size, file=stderr)
 
     checker_dims = (MACBETH_HEIGHT, MACBETH_WIDTH)
     this_colorchecker = np.empty(checker_dims + (3,), dtype='float32')
@@ -276,9 +278,10 @@ def find_colorchecker(boxes, image, original_image, debug_image=None):
     orient_1_error = check_colorchecker(this_colorchecker)
     this_colorchecker = this_colorchecker[::-1, ::-1]
     orient_2_error = check_colorchecker(this_colorchecker)
-    
-    print("Orientation 1: %f\n" % orient_1_error, file=stderr)
-    print("Orientation 2: %f\n" % orient_2_error, file=stderr)
+
+    if DEBUG:
+        print("Orientation 1: %f\n" % orient_1_error, file=stderr)
+        print("Orientation 2: %f\n" % orient_2_error, file=stderr)
 
     if orient_1_error < orient_2_error:
         this_colorchecker = this_colorchecker[::-1, ::-1]
@@ -387,8 +390,8 @@ def find_macbeth(img, patch_size=None):
     macbeth_split = cv2.split(macbeth_img)
     
     block_size = int(min(macbeth_img.shape[:2]) * 0.02) | 1
-    # block_size = int(min(macbeth_img.shape[:2]) * .009) | 1
-    print("Using %d as block size\n" % block_size, file=stderr)
+    if DEBUG:
+        print("Using %d as block size\n" % block_size, file=stderr)
 
     # threshold each channel and OR results together
     macbeth_split_thresh = []
@@ -399,14 +402,14 @@ def find_macbeth(img, patch_size=None):
                                     cv2.THRESH_BINARY_INV,
                                     block_size,
                                     C=6)
-        # _, res = cv2.threshold(channel, 50, 255, cv2.THRESH_BINARY_INV)
         macbeth_split_thresh.append(res)
     adaptive = np.bitwise_or(*macbeth_split_thresh)
     if DEBUG:
         cv2.imwrite('debug_threshold.png', np.vstack(macbeth_split_thresh+[adaptive]))
 
     element_size = int(2 + block_size/10)
-    print("Using %d as element size\n" % element_size, file=stderr)
+    if DEBUG:
+        print("Using %d as element size\n" % element_size, file=stderr)
 
     # do an opening on the threshold image
     shape, ksize = cv2.MORPH_RECT, (element_size, element_size)
@@ -463,22 +466,26 @@ def find_macbeth(img, patch_size=None):
             cv2.drawContours(show_quads, initial_quads, -1, (0, 255, 0))
             cv2.imwrite('debug_quads2.png', show_quads)
 
-        print("%d initial quads found", len(initial_quads), file=stderr)
+        if DEBUG:
+            print("%d initial quads found", len(initial_quads), file=stderr)
         if len(initial_quads) > MACBETH_SQUARES:
-            print(" (probably a Passport)\n", stderr)
+            if DEBUG:
+                print(" (probably a Passport)\n", stderr)
 
             # set up the points sequence for cvKMeans2, using the box centers
-            points = np.array([box.center for box in initial_boxes], dtype='float32')
+            points = np.array([box.center for box in initial_boxes],
+                              dtype='float32')
 
             # partition into two clusters: passport and colorchecker
-            criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER,
-                        10, 1.0)
-            compactness, clusters, centers = cv2.kmeans(data=points,
-                                                        K=2,
-                                                        bestLabels=None,
-                                                        criteria=criteria,
-                                                        attempts=100,
-                                                        flags=cv2.KMEANS_RANDOM_CENTERS)
+            criteria = \
+                (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
+            compactness, clusters, centers = \
+                cv2.kmeans(data=points,
+                           K=2,
+                           bestLabels=None,
+                           criteria=criteria,
+                           attempts=100,
+                           flags=cv2.KMEANS_RANDOM_CENTERS)
 
             partitioned_quads = [[], []]
             partitioned_boxes = [[], []]
@@ -510,7 +517,8 @@ def find_macbeth(img, patch_size=None):
             debug_img = None
             if DEBUG:
                 debug_img = "debug_find_colorchecker.jpg"
-            print("\n", file=stderr)
+            if DEBUG:
+                print("\n", file=stderr)
             found_colorchecker = \
                 find_colorchecker(initial_boxes, macbeth_img, macbeth_original,
                                   debug_image=debug_img)
@@ -534,8 +542,11 @@ def find_macbeth(img, patch_size=None):
                              found_colorchecker.points.reshape(-1, 2)):
             b, g, r = color
             x, y = pt
-            print("%.0f,%.0f,%.0f,%.0f,%.0f\n" % (x, y, r, g, b))
-        print("%0.f\n%f\n" % (found_colorchecker.size, found_colorchecker.error))
+            if DEBUG:
+                print("%.0f,%.0f,%.0f,%.0f,%.0f\n" % (x, y, r, g, b))
+        if DEBUG:
+            print("%0.f\n%f\n" 
+                  "" % (found_colorchecker.size, found_colorchecker.error))
 
     return macbeth_img, found_colorchecker
 

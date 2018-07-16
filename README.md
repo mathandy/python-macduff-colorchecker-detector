@@ -3,12 +3,8 @@ This is a Python port of [Macduff](https://github.com/ryanfb/macduff), a tool fo
 
 The translation to python was done by Andrew Port and was partially supported by [Rare](https://rare.org) as part of work done for the [Fish Forever](http://www.fishforever.org/) project.
 
-## Some Changes from the Original Algorithm
-1. A parameter `MIN_RELATIVE_SQUARE_SIZE` has been added as a work-around for an issue where the algorithm would choke on images where the ColorChecker was smaller than a certain hard-coded size relative to the image dimensions.
-
-2. The original code by ryanfb made use of an undocumented OpenCV function
-named `CV_IS_SEQ_HOLE`.  The related check was removed in this Python
-version of the algorithm.  This ommission has not been noted to cause any effect.
+## Changes from the original algorithm:
+    * A parameter `MIN_RELATIVE_SQUARE_SIZE` has been added as a work-around for an issue where the algorithm would choke on images where the ColorChecker was smaller than a certain hard-coded size relative to the image dimensions.
 
 ## Usage
   

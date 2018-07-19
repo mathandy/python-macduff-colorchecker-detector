@@ -213,10 +213,6 @@ def find_colorchecker(boxes, image, debug_filename=None, use_patch_std=True):
     box_corners = np.roll(box_corners, -top_left_idx, 0)
     tl, tr, br, bl = box_corners
 
-    # landscape_orientation = True  # `passport_box` is wider than tall
-    # if a < 0.0:
-    #     landscape_orientation = False
-
     if DEBUG:
         debug_images = [copy(image), copy(image)]
         for box in boxes:
@@ -233,21 +229,9 @@ def find_colorchecker(boxes, image, debug_filename=None, use_patch_std=True):
         print("Box:\n\tCenter: %f,%f\n\tSize: %f,%f\n\tAngle: %f\n" 
               "" % (x, y, w, h, a), file=stderr)
 
-    # # Note: `box_corners` sorted above to be ordered tl, tr, br, bl
-    # orig_tl, orig_tr, orig_br, orig_bl = box_corners
-    # if norm(orig_tr - orig_tl) < norm(orig_tl - orig_bl):
-    #     if DEBUG:
-    #         print("Box is upright, rotating\n", file=stderr)
-    #     box_corners = rotate_box(box_corners)
-    # tl, tr, br, bl = box_corners  # rotated to be in landscape orientation
     landscape_orientation = True  # `passport_box` is wider than tall
     if norm(tr - tl) < norm(bl - tl):
         landscape_orientation = False
-
-    # h_spacing = norm(tl - tr)/(MACBETH_WIDTH - 1)
-    # v_spacing = norm(tl - bl) / (MACBETH_HEIGHT - 1)
-    # h_vec = (tr - tl)/norm(tr - tl)
-    # v_vec = (bl - tl)/norm(bl - tl)
 
     average_size = int(sum(min(box.size) for box in boxes) / len(boxes))
     if landscape_orientation:
@@ -264,22 +248,6 @@ def find_colorchecker(boxes, image, debug_filename=None, use_patch_std=True):
     sum_of_patch_stds = np.array((0.0, 0.0, 0.0))
     for x in range(MACBETH_WIDTH):
         for y in range(MACBETH_HEIGHT):
-            # row_start = box_corners[0]
-            # tmp = v_spacing * y / v_mag
-            # if not rotated_box:
-            #     tmp *= -1
-            #
-            # row_start[0] += tmp
-            # row_start[1] += tmp * v_slope
-
-            # px = row_start[0] - x * h_spacing * h_orientation / h_mag
-            # py = row_start[1] - x * h_spacing * v_orientation * h_slope / h_mag
-            # center = (px, py)
-            # if rotated_box:
-            #     center = tl + x*h_spacing*h_vec + y*v_spacing*v_vec
-            # else:
-            #     center = tl + x*h_spacing*v_vec + y*v_spacing*h_vec
-
             center = tl + x*dx + y*dy
 
             px, py = center
@@ -313,8 +281,6 @@ def find_colorchecker(boxes, image, debug_filename=None, use_patch_std=True):
         error = min(orient_1_error, orient_2_error)
 
     if DEBUG:
-        # print("Spacing is %f %f\n" % (h_spacing, v_spacing), file=stderr)
-        # print("Slope is %f %f\n" % (h_slope, v_slope), file=stderr)
         print("dx =", dx, file=stderr)
         print("dy =", dy, file=stderr)
         print("Average contained rect size is %d\n" % average_size, file=stderr)

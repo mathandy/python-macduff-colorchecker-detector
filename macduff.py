@@ -31,43 +31,13 @@ MAX_CONTOUR_APPROX = 50  # default was 7
 MAX_RGB_DISTANCE = 444
 
 
-# BabelColor averages in sRGB:
-#   http://www.babelcolor.com/main_level/ColorChecker.htm
-# (converted to BGR order for comparison)
-colorchecker_srgb = np.array([
-        [
-            (67, 81, 115),
-            (129, 149, 196),
-            (157, 123, 93),
-            (65, 108, 90),
-            (176, 129, 130),
-            (171, 191, 99)
-        ],
-        [
-            (45, 123, 220),
-            (168, 92, 72),
-            (98, 84, 195),
-            (105, 59, 91),
-            (62, 189, 160),
-            (41, 161, 229)
-        ],
-        [
-            (147, 62, 43),
-            (72, 149, 71),
-            (56, 48, 176),
-            (22, 200, 238),
-            (150, 84, 188),
-            (166, 136, 0)
-        ],
-        [
-            (240, 245, 245),
-            (201, 201, 200),
-            (161, 161, 160),
-            (121, 121, 120),
-            (85, 84, 83),
-            (50, 50, 50)
-        ]
-    ], dtype='uint8')
+# pick the colorchecker values to use -- several options available in
+# the `color_data` subdirectory
+# Note: all options are explained in detail at
+# http://www.babelcolor.com/colorchecker-2.htm
+color_data = 'color_data/xrite_passport_colors_sRGB-GMB-2005.csv'
+expected_colors = np.flip(np.loadtxt(color_data, delimiter=','), 1)
+expected_colors = expected_colors.reshape(MACBETH_HEIGHT, MACBETH_WIDTH, 3)
 
 
 def lab_distance(p_1, p_2):
@@ -80,8 +50,7 @@ def lab_distance(p_1, p_2):
     return sqrt(l*l + a*a + b*b)
 
 
-# a few classes to simplify the translation from c++
-
+# a class to simplify the translation from c++
 class Box2D:
     """
     Note: The Python equivalent of `RotatedRect` and `Box2D` objects 
@@ -110,30 +79,6 @@ class Box2D:
 
     def rrect(self):
         return self.center, self.size, self.angle
-
-#
-# class Rect:
-#     def __init__(self, x=0, y=0, width=0, height=0):
-#         self.x = x
-#         self.y = y
-#         self.width = width
-#         self.height = height
-#
-#     def rrect(self):
-#         center = (self.x + self.width/2, self.y + self.height/2)
-#         size = (self.width, self.height)
-#         return center, size, 0
-
-
-# def rect_average(rect, image):
-#     """Returns mean color in intersection of `image` and `rectangle`."""
-#
-#     # crop out intersection of `rect` and `image`
-#     x, y, w, h = rect.x, rect.y, rect.width, rect.height
-#     x0, y0, x1, y1 = map(round, [x, y, x + w, y + h])
-#     intersection = image[int(max(y0, 0)): int(min(y1, image.shape[0])),
-#                          int(max(x0, 0)): int(min(x1, image.shape[1]))]
-#     return intersection.mean(axis=(0, 1))
 
 
 def crop_patch(center, size, image):
@@ -178,13 +123,13 @@ def rotate_box(box_corners):
 
 def check_colorchecker(values):
     """Find deviation of colorchecker `values` from expected values."""
-    diff = (values - colorchecker_srgb).ravel(order='K')
+    diff = (values - expected_colors).ravel(order='K')
     return sqrt(np.dot(diff, diff))
 
 
 def draw_colorchecker(colors, centers, image, radius):
     for observed_color, expected_color, pt in zip(colors.reshape(-1, 3),
-                                                  colorchecker_srgb.reshape(-1, 3),
+                                                  expected_colors.reshape(-1, 3),
                                                   centers.reshape(-1, 2)):
         x, y = pt
         cv2.circle(image, (x, y), radius//2, expected_color.tolist(), -1)
@@ -540,24 +485,29 @@ def find_macbeth(img, patch_size=None):
             print("%0.f\n%f\n" 
                   "" % (found_colorchecker.size, found_colorchecker.error))
 
-        # # write results
-        # def write_results(filename, colorchecker):
-        #     with open(filename, 'w+') as f:
-        #         colors = colorchecker.values.reshape(1, 3)
-        #         for k, (b, g, r) in enumerate(colors):
-        #             f.write('{},{},{},{}\n'.format(k, r, g, b))
-        # write_results('results.csv, found_colorchecker')
-
     return macbeth_img, found_colorchecker
+
+
+def write_results(colorchecker, filename=None):
+    mes = ',r,g,b\n'
+    for k, (b, g, r) in enumerate(colorchecker.values.reshape(1, 3)):
+        mes += '{},{},{},{}\n'.format(k, r, g, b)
+
+    if filename is None:
+        print(mes)
+    else:
+        with open(filename, 'w+') as f:
+            f.write(mes)
 
 
 if __name__ == '__main__':
     if len(argv) == 3:
-        out, _ = find_macbeth(argv[1])
+        out, colorchecker = find_macbeth(argv[1])
         cv2.imwrite(argv[2], out)
     elif len(argv) == 4:
-        out, _ = find_macbeth(argv[1], patch_size=float(argv[3]))
+        out, colorchecker = find_macbeth(argv[1], patch_size=float(argv[3]))
         cv2.imwrite(argv[2], out)
     else:
-        print("Usage: %s <input_image> <output_image> <(optional) patch_size>\n" % argv[0],
-              file=stderr)
+        print('Usage: %s <input_image> <output_image> <(optional) patch_size>\n'
+              '' % argv[0], file=stderr)
+    # write_results(colorchecker, 'results.csv')

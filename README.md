@@ -16,6 +16,10 @@ The translation to python was done by Andrew Port and was supported by
     when the approximate (within rtol=25%) pixel-width of the color patches is
     known.
 
+    * Several additional colorchecker color value options are now included.  The
+    default has been changed to those values provided by xrite for the "passport"
+    colorchecker.
+
 ## Usage
   
     # if pixel-width of color patches is unknown,  

@@ -28,8 +28,6 @@ MACBETH_HEIGHT = 4
 MACBETH_SQUARES = MACBETH_WIDTH * MACBETH_HEIGHT
 
 MAX_CONTOUR_APPROX = 50  # default was 7
-MAX_RGB_DISTANCE = 444
-
 
 # pick the colorchecker values to use -- several options available in
 # the `color_data` subdirectory
@@ -38,16 +36,6 @@ MAX_RGB_DISTANCE = 444
 color_data = 'color_data/xrite_passport_colors_sRGB-GMB-2005.csv'
 expected_colors = np.flip(np.loadtxt(color_data, delimiter=','), 1)
 expected_colors = expected_colors.reshape(MACBETH_HEIGHT, MACBETH_WIDTH, 3)
-
-
-def lab_distance(p_1, p_2):
-    """Converts to Lab color space then takes Euclidean distance.
-
-    Note: this is vectorized below.  (wrapped with `np.vectorize`)"""
-    convert = np.array([p_1, p_2], dtype='uint8').reshape(2, 1, 3)
-    convert = cv2.cvtColor(convert, cv2.COLOR_BGR2Lab)
-    l, a, b = convert[0, 0] - convert[1, 0]
-    return sqrt(l*l + a*a + b*b)
 
 
 # a class to simplify the translation from c++
@@ -121,10 +109,17 @@ def rotate_box(box_corners):
     return np.roll(box_corners, 1, 0)
 
 
-def check_colorchecker(values):
+def check_colorchecker(values, expected_values=expected_colors):
     """Find deviation of colorchecker `values` from expected values."""
-    diff = (values - expected_colors).ravel(order='K')
+    diff = (values - expected_values).ravel(order='K')
     return sqrt(np.dot(diff, diff))
+
+
+# def check_colorchecker_lab(values):
+#     """Converts to Lab color space then takes Euclidean distance."""
+#     lab_values = cv2.cvtColor(values, cv2.COLOR_BGR2Lab)
+#     lab_expected = cv2.cvtColor(expected_colors, cv2.COLOR_BGR2Lab)
+#     return check_colorchecker(lab_values, lab_expected)
 
 
 def draw_colorchecker(colors, centers, image, radius):

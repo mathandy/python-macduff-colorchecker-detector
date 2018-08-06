@@ -17,11 +17,16 @@ from numpy.linalg import norm
 from math import sqrt
 from sys import stderr, argv
 from copy import copy
+import os
+
+
+_root = os.path.dirname(os.path.realpath(__file__))
+
 
 # Each color square must takes up more than this percentage of the image
 MIN_RELATIVE_SQUARE_SIZE = 0.0001
 
-DEBUG = True
+DEBUG = False
 
 MACBETH_WIDTH = 6
 MACBETH_HEIGHT = 4
@@ -29,11 +34,13 @@ MACBETH_SQUARES = MACBETH_WIDTH * MACBETH_HEIGHT
 
 MAX_CONTOUR_APPROX = 50  # default was 7
 
+
 # pick the colorchecker values to use -- several options available in
 # the `color_data` subdirectory
 # Note: all options are explained in detail at
 # http://www.babelcolor.com/colorchecker-2.htm
-color_data = 'color_data/xrite_passport_colors_sRGB-GMB-2005.csv'
+color_data = os.path.join(_root, 'color_data',
+                          'xrite_passport_colors_sRGB-GMB-2005.csv')
 expected_colors = np.flip(np.loadtxt(color_data, delimiter=','), 1)
 expected_colors = expected_colors.reshape(MACBETH_HEIGHT, MACBETH_WIDTH, 3)
 

@@ -11,7 +11,7 @@ Usage:
     $ python macduff.py examples/test.jpg result.png 65 > result.csv
 """
 from __future__ import print_function, division
-import cv2
+import cv2 as cv
 import numpy as np
 from numpy.linalg import norm
 from math import sqrt
@@ -51,12 +51,12 @@ class Box2D:
     Note: The Python equivalent of `RotatedRect` and `Box2D` objects 
     are tuples, `((center_x, center_y), (w, h), rotation)`.
     Example:
-    >>> cv2.boxPoints(((0, 0), (2, 1), 0))
+    >>> cv.boxPoints(((0, 0), (2, 1), 0))
     array([[-1. ,  0.5],
            [-1. , -0.5],
            [ 1. , -0.5],
            [ 1. ,  0.5]], dtype=float32)
-    >>> cv2.boxPoints(((0, 0), (2, 1), 90))
+    >>> cv.boxPoints(((0, 0), (2, 1), 90))
     array([[-0.5, -1. ],
            [ 0.5, -1. ],
            [ 0.5,  1. ],
@@ -93,11 +93,11 @@ def contour_average(contour, image):
     """
 
     # find up-right bounding box
-    xbb, ybb, wbb, hbb = cv2.boundingRect(contour)
+    xbb, ybb, wbb, hbb = cv.boundingRect(contour)
 
     # now found which points in bounding box are inside contour and sum
     def is_inside_contour(pt):
-        return cv2.pointPolygonTest(contour, pt, False) > 0
+        return cv.pointPolygonTest(contour, pt, False) > 0
 
     from itertools import product as catesian_product
     from operator import add
@@ -124,8 +124,8 @@ def check_colorchecker(values, expected_values=expected_colors):
 
 # def check_colorchecker_lab(values):
 #     """Converts to Lab color space then takes Euclidean distance."""
-#     lab_values = cv2.cvtColor(values, cv2.COLOR_BGR2Lab)
-#     lab_expected = cv2.cvtColor(expected_colors, cv2.COLOR_BGR2Lab)
+#     lab_values = cv.cvtColor(values, cv.COLOR_BGR2Lab)
+#     lab_expected = cv.cvtColor(expected_colors, cv.COLOR_BGR2Lab)
 #     return check_colorchecker(lab_values, lab_expected)
 
 
@@ -134,8 +134,8 @@ def draw_colorchecker(colors, centers, image, radius):
                                                   expected_colors.reshape(-1, 3),
                                                   centers.reshape(-1, 2)):
         x, y = pt
-        cv2.circle(image, (x, y), radius//2, expected_color.tolist(), -1)
-        cv2.circle(image, (x, y), radius//4, observed_color.tolist(), -1)
+        cv.circle(image, (x, y), radius//2, expected_color.tolist(), -1)
+        cv.circle(image, (x, y), radius//4, observed_color.tolist(), -1)
     return image
 
 
@@ -147,12 +147,13 @@ class ColorChecker:
         self.size = size
 
 
-def find_colorchecker(boxes, image, debug_filename=None, use_patch_std=True):
+def find_colorchecker(boxes, image, debug_filename=None, use_patch_std=True,
+                      debug=DEBUG):
 
     points = np.array([[box.center[0], box.center[1]] for box in boxes])
-    passport_box = cv2.minAreaRect(points.astype('float32'))
+    passport_box = cv.minAreaRect(points.astype('float32'))
     (x, y), (w, h), a = passport_box
-    box_corners = cv2.boxPoints(passport_box)
+    box_corners = cv.boxPoints(passport_box)
 
     # sort `box_corners` to be in order tl, tr, br, bl
     top_corners = sorted(enumerate(box_corners), key=lambda c: c[1][1])[:2]
@@ -160,18 +161,18 @@ def find_colorchecker(boxes, image, debug_filename=None, use_patch_std=True):
     box_corners = np.roll(box_corners, -top_left_idx, 0)
     tl, tr, br, bl = box_corners
 
-    if DEBUG:
+    if debug:
         debug_images = [copy(image), copy(image)]
         for box in boxes:
-            pts_ = [cv2.boxPoints(box.rrect()).astype(np.int32)]
-            cv2.polylines(debug_images[0], pts_, True, (255, 0, 0))
+            pts_ = [cv.boxPoints(box.rrect()).astype(np.int32)]
+            cv.polylines(debug_images[0], pts_, True, (255, 0, 0))
         pts_ = [box_corners.astype(np.int32)]
-        cv2.polylines(debug_images[0], pts_, True, (0, 0, 255))
+        cv.polylines(debug_images[0], pts_, True, (0, 0, 255))
 
         bgrp = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 0, 255)]
         for pt, c in zip(box_corners, bgrp):
-            cv2.circle(debug_images[0], tuple(np.array(pt, dtype='int')), 10, c)
-        # cv2.imwrite(debug_filename, np.vstack(debug_images))
+            cv.circle(debug_images[0], tuple(np.array(pt, dtype='int')), 10, c)
+        # cv.imwrite(debug_filename, np.vstack(debug_images))
 
         print("Box:\n\tCenter: %f,%f\n\tSize: %f,%f\n\tAngle: %f\n" 
               "" % (x, y, w, h, a), file=stderr)
@@ -207,12 +208,12 @@ def find_colorchecker(boxes, image, debug_filename=None, use_patch_std=True):
             patch_values[y, x] = img_patch.mean(axis=(0, 1))
             sum_of_patch_stds += img_patch.std(axis=(0, 1))
 
-            if DEBUG:
+            if debug:
                 rect = (px, py), (average_size, average_size), 0
-                pts_ = [cv2.boxPoints(rect).astype(np.int32)]
-                cv2.polylines(debug_images[1], pts_, True, (0, 255, 0))
-    if DEBUG:
-        cv2.imwrite(debug_filename, np.vstack(debug_images))
+                pts_ = [cv.boxPoints(rect).astype(np.int32)]
+                cv.polylines(debug_images[1], pts_, True, (0, 255, 0))
+    if debug:
+        cv.imwrite(debug_filename, np.vstack(debug_images))
 
     # determine which orientation has lower error
     orient_1_error = check_colorchecker(patch_values)
@@ -227,7 +228,7 @@ def find_colorchecker(boxes, image, debug_filename=None, use_patch_std=True):
     else:
         error = min(orient_1_error, orient_2_error)
 
-    if DEBUG:
+    if debug:
         print("dx =", dx, file=stderr)
         print("dy =", dy, file=stderr)
         print("Average contained rect size is %d\n" % average_size, file=stderr)
@@ -250,22 +251,22 @@ def angle_cos(p0, p1, p2):
 # Note: This is similar to find_quads, added to hastily add support to
 # the `patch_size` parameter
 def find_squares(img):
-    img = cv2.GaussianBlur(img, (5, 5), 0)
+    img = cv.GaussianBlur(img, (5, 5), 0)
     squares = []
-    for gray in cv2.split(img):
+    for gray in cv.split(img):
         for thrs in range(0, 255, 26):
             if thrs == 0:
-                bin = cv2.Canny(gray, 0, 50, apertureSize=5)
-                bin = cv2.dilate(bin, None)
+                bin = cv.Canny(gray, 0, 50, apertureSize=5)
+                bin = cv.dilate(bin, None)
             else:
-                _retval, bin = cv2.threshold(gray, thrs, 255, cv2.THRESH_BINARY)
+                _retval, bin = cv.threshold(gray, thrs, 255, cv.THRESH_BINARY)
             bin, contours, _hierarchy = \
-                cv2.findContours(bin, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+                cv.findContours(bin, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
             for cnt in contours:
-                cnt_len = cv2.arcLength(cnt, True)
-                cnt = cv2.approxPolyDP(cnt, 0.02*cnt_len, True)
-                if (len(cnt) == 4 and cv2.contourArea(cnt) > 1000
-                        and cv2.isContourConvex(cnt)):
+                cnt_len = cv.arcLength(cnt, True)
+                cnt = cv.approxPolyDP(cnt, 0.02*cnt_len, True)
+                if (len(cnt) == 4 and cv.contourArea(cnt) > 1000
+                        and cv.isContourConvex(cnt)):
                     cnt = cnt.reshape(-1, 2)
                     max_cos = max([angle_cos(cnt[i], cnt[(i+1) % 4], cnt[(i + 2) % 4])
                                    for i in range(4)])
@@ -285,23 +286,23 @@ def is_right_size(quad, patch_size, rtol=.25):
 def find_quad(src_contour, min_size, debug_image=None):
 
     for max_error in range(2, MAX_CONTOUR_APPROX + 1):
-        dst_contour = cv2.approxPolyDP(src_contour, max_error, closed=True)
+        dst_contour = cv.approxPolyDP(src_contour, max_error, closed=True)
         if len(dst_contour) == 4:
             break
 
         # we call this again on its own output, because sometimes
         # cvApproxPoly() does not simplify as much as it should.
-        dst_contour = cv2.approxPolyDP(dst_contour, max_error, closed=True)
+        dst_contour = cv.approxPolyDP(dst_contour, max_error, closed=True)
         if len(dst_contour) == 4:
             break
 
     # reject non-quadrangles
     is_acceptable_quad = False
     is_quad = False
-    if len(dst_contour) == 4 and cv2.isContourConvex(dst_contour):
+    if len(dst_contour) == 4 and cv.isContourConvex(dst_contour):
         is_quad = True
-        perimeter = cv2.arcLength(dst_contour, closed=True)
-        area = cv2.contourArea(dst_contour, oriented=False)
+        perimeter = cv.arcLength(dst_contour, closed=True)
+        area = cv.contourArea(dst_contour, oriented=False)
 
         d1 = np.linalg.norm(dst_contour[0] - dst_contour[2])
         d2 = np.linalg.norm(dst_contour[1] - dst_contour[3])
@@ -316,15 +317,15 @@ def find_quad(src_contour, min_size, debug_image=None):
                 d1 >= 0.15*perimeter and
                 d2 >= 0.15*perimeter)
 
-        if not cv2.CALIB_CB_FILTER_QUADS or area > min_size and cond:
+        if not cv.CALIB_CB_FILTER_QUADS or area > min_size and cond:
             is_acceptable_quad = True
             # return dst_contour
     if debug_image is not None:
-        cv2.drawContours(debug_image, [src_contour], -1, (255, 0, 0), 1)
+        cv.drawContours(debug_image, [src_contour], -1, (255, 0, 0), 1)
         if is_acceptable_quad:
-            cv2.drawContours(debug_image, [dst_contour], -1, (0, 255, 0), 1)
+            cv.drawContours(debug_image, [dst_contour], -1, (0, 255, 0), 1)
         elif is_quad:
-            cv2.drawContours(debug_image, [dst_contour], -1, (0, 0, 255), 1)
+            cv.drawContours(debug_image, [dst_contour], -1, (0, 0, 255), 1)
         return debug_image
 
     if is_acceptable_quad:
@@ -332,72 +333,73 @@ def find_quad(src_contour, min_size, debug_image=None):
     return None
 
 
-def find_macbeth(img, patch_size=None):
+def find_macbeth(img, patch_size=None, is_passport=False, debug=DEBUG,
+                 min_relative_square_size=MIN_RELATIVE_SQUARE_SIZE):
     macbeth_img = img
     if isinstance(img, str):
-        macbeth_img = cv2.imread(img)
+        macbeth_img = cv.imread(img)
     macbeth_original = copy(macbeth_img)
-    macbeth_split = cv2.split(macbeth_img)
+    macbeth_split = cv.split(macbeth_img)
 
     # threshold each channel and OR results together
     block_size = int(min(macbeth_img.shape[:2]) * 0.02) | 1
     macbeth_split_thresh = []
     for channel in macbeth_split:
-        res = cv2.adaptiveThreshold(channel,
+        res = cv.adaptiveThreshold(channel,
                                     255,
-                                    cv2.ADAPTIVE_THRESH_MEAN_C,
-                                    cv2.THRESH_BINARY_INV,
+                                    cv.ADAPTIVE_THRESH_MEAN_C,
+                                    cv.THRESH_BINARY_INV,
                                     block_size,
                                     C=6)
         macbeth_split_thresh.append(res)
     adaptive = np.bitwise_or(*macbeth_split_thresh)
 
-    if DEBUG:
+    if debug:
         print("Used %d as block size\n" % block_size, file=stderr)
-        cv2.imwrite('debug_threshold.png',
+        cv.imwrite('debug_threshold.png',
                     np.vstack(macbeth_split_thresh + [adaptive]))
 
     # do an opening on the threshold image
     element_size = int(2 + block_size / 10)
-    shape, ksize = cv2.MORPH_RECT, (element_size, element_size)
-    element = cv2.getStructuringElement(shape, ksize)
-    adaptive = cv2.morphologyEx(adaptive, cv2.MORPH_OPEN, element)
+    shape, ksize = cv.MORPH_RECT, (element_size, element_size)
+    element = cv.getStructuringElement(shape, ksize)
+    adaptive = cv.morphologyEx(adaptive, cv.MORPH_OPEN, element)
 
-    if DEBUG:
+    if debug:
         print("Used %d as element size\n" % element_size, file=stderr)
-        cv2.imwrite('debug_adaptive-open.png', adaptive)
+        cv.imwrite('debug_adaptive-open.png', adaptive)
 
     # find contours in the threshold image
-    adaptive, contours, _ = cv2.findContours(image=adaptive,
-                                             mode=cv2.RETR_LIST,
-                                             method=cv2.CHAIN_APPROX_SIMPLE)
+    adaptive, contours, _ = cv.findContours(image=adaptive,
+                                             mode=cv.RETR_LIST,
+                                             method=cv.CHAIN_APPROX_SIMPLE)
 
-    if DEBUG:
-        show_contours = cv2.cvtColor(copy(adaptive), cv2.COLOR_GRAY2BGR)
-        cv2.drawContours(show_contours, contours, -1, (0, 255, 0))
-        cv2.imwrite('debug_all_contours.png', show_contours)
+    if debug:
+        show_contours = cv.cvtColor(copy(adaptive), cv.COLOR_GRAY2BGR)
+        cv.drawContours(show_contours, contours, -1, (0, 255, 0))
+        cv.imwrite('debug_all_contours.png', show_contours)
 
-    min_size = np.product(macbeth_img.shape[:2]) * MIN_RELATIVE_SQUARE_SIZE
+    min_size = np.product(macbeth_img.shape[:2]) * min_relative_square_size
 
     def is_seq_hole(c):
-        return cv2.contourArea(c, oriented=True) > 0
+        return cv.contourArea(c, oriented=True) > 0
 
     def is_big_enough(contour):
-        _, (w, h), _ = cv2.minAreaRect(contour)
+        _, (w, h), _ = cv.minAreaRect(contour)
         return w * h >= min_size
 
     # filter out contours that are too small or clockwise
     contours = [c for c in contours if is_big_enough(c) and is_seq_hole(c)]
 
-    if DEBUG:
-        show_contours = cv2.cvtColor(copy(adaptive), cv2.COLOR_GRAY2BGR)
-        cv2.drawContours(show_contours, contours, -1, (0, 255, 0))
-        cv2.imwrite('debug_big_contours.png', show_contours)
+    if debug:
+        show_contours = cv.cvtColor(copy(adaptive), cv.COLOR_GRAY2BGR)
+        cv.drawContours(show_contours, contours, -1, (0, 255, 0))
+        cv.imwrite('debug_big_contours.png', show_contours)
 
-        debug_img = cv2.cvtColor(copy(adaptive), cv2.COLOR_GRAY2BGR)
+        debug_img = cv.cvtColor(copy(adaptive), cv.COLOR_GRAY2BGR)
         for c in contours:
             debug_img = find_quad(c, min_size, debug_image=debug_img)
-        cv2.imwrite("debug_quads.png", debug_img)
+        cv.imwrite("debug_quads.png", debug_img)
 
     if contours:
         if patch_size is None:
@@ -405,17 +407,21 @@ def find_macbeth(img, patch_size=None):
         else:
             initial_quads = [s for s in find_squares(macbeth_original)
                              if is_right_size(s, patch_size)]
+            if is_passport and len(initial_quads) <= MACBETH_SQUARES:
+                qs = [find_quad(c, min_size) for c in contours]
+                qs = [x for x in qs if x is not None]
+                initial_quads = [x for x in qs if is_right_size(x, patch_size)]
         initial_quads = [q for q in initial_quads if q is not None]
-        initial_boxes = [Box2D(rrect=cv2.minAreaRect(q)) for q in initial_quads]
+        initial_boxes = [Box2D(rrect=cv.minAreaRect(q)) for q in initial_quads]
 
-        if DEBUG:
-            show_quads = cv2.cvtColor(copy(adaptive), cv2.COLOR_GRAY2BGR)
-            cv2.drawContours(show_quads, initial_quads, -1, (0, 255, 0))
-            cv2.imwrite('debug_quads2.png', show_quads)
+        if debug:
+            show_quads = cv.cvtColor(copy(adaptive), cv.COLOR_GRAY2BGR)
+            cv.drawContours(show_quads, initial_quads, -1, (0, 255, 0))
+            cv.imwrite('debug_quads2.png', show_quads)
             print("%d initial quads found", len(initial_quads), file=stderr)
 
-        if len(initial_quads) > MACBETH_SQUARES:
-            if DEBUG:
+        if is_passport or (len(initial_quads) > MACBETH_SQUARES):
+            if debug:
                 print(" (probably a Passport)\n", file=stderr)
 
             # set up the points sequence for cvKMeans2, using the box centers
@@ -424,14 +430,14 @@ def find_macbeth(img, patch_size=None):
 
             # partition into two clusters: passport and colorchecker
             criteria = \
-                (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
+                (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 10, 1.0)
             compactness, clusters, centers = \
-                cv2.kmeans(data=points,
+                cv.kmeans(data=points,
                            K=2,
                            bestLabels=None,
                            criteria=criteria,
                            attempts=100,
-                           flags=cv2.KMEANS_RANDOM_CENTERS)
+                           flags=cv.KMEANS_RANDOM_CENTERS)
 
             partitioned_quads = [[], []]
             partitioned_boxes = [[], []]
@@ -440,22 +446,23 @@ def find_macbeth(img, patch_size=None):
                 partitioned_boxes[cluster].append(initial_boxes[i])
 
             debug_fns = [None, None]
-            if DEBUG:
+            if debug:
                 debug_fns = ['debug_passport_box_%s.jpg' % i for i in (0, 1)]
 
                 # show clustering
                 img_clusters = []
                 for cl in partitioned_quads:
                     img_copy = copy(macbeth_original)
-                    cv2.drawContours(img_copy, cl, -1, (255, 0, 0))
+                    cv.drawContours(img_copy, cl, -1, (255, 0, 0))
                     img_clusters.append(img_copy)
-                cv2.imwrite('debug_clusters.jpg', np.vstack(img_clusters))
+                cv.imwrite('debug_clusters.jpg', np.vstack(img_clusters))
 
             # check each of the two partitioned sets for the best colorchecker
             partitioned_checkers = []
             for cluster_boxes, fn in zip(partitioned_boxes, debug_fns):
                 partitioned_checkers.append(
-                    find_colorchecker(cluster_boxes, macbeth_original, fn))
+                    find_colorchecker(cluster_boxes, macbeth_original, fn,
+                                      debug=debug))
 
             # use the colorchecker with the lowest error
             found_colorchecker = min(partitioned_checkers,
@@ -463,12 +470,13 @@ def find_macbeth(img, patch_size=None):
 
         else:  # just one colorchecker to test
             debug_img = None
-            if DEBUG:
+            if debug:
                 debug_img = "debug_passport_box.jpg"
                 print("\n", file=stderr)
 
             found_colorchecker = \
-                find_colorchecker(initial_boxes, macbeth_original, debug_img)
+                find_colorchecker(initial_boxes, macbeth_original, debug_img,
+                                  debug=debug)
 
         # render the found colorchecker
         draw_colorchecker(found_colorchecker.values,
@@ -481,12 +489,13 @@ def find_macbeth(img, patch_size=None):
                              found_colorchecker.points.reshape(-1, 2)):
             b, g, r = color
             x, y = pt
-            if DEBUG:
+            if debug:
                 print("%.0f,%.0f,%.0f,%.0f,%.0f\n" % (x, y, r, g, b))
-        if DEBUG:
+        if debug:
             print("%0.f\n%f\n" 
                   "" % (found_colorchecker.size, found_colorchecker.error))
-
+    else:
+        raise Exception('Something went wrong -- no contours found')
     return macbeth_img, found_colorchecker
 
 
@@ -505,10 +514,10 @@ def write_results(colorchecker, filename=None):
 if __name__ == '__main__':
     if len(argv) == 3:
         out, colorchecker = find_macbeth(argv[1])
-        cv2.imwrite(argv[2], out)
+        cv.imwrite(argv[2], out)
     elif len(argv) == 4:
         out, colorchecker = find_macbeth(argv[1], patch_size=float(argv[3]))
-        cv2.imwrite(argv[2], out)
+        cv.imwrite(argv[2], out)
     else:
         print('Usage: %s <input_image> <output_image> <(optional) patch_size>\n'
               '' % argv[0], file=stderr)

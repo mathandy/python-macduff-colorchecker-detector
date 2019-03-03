@@ -1,0 +1,9 @@
+__pycache__
+*.pyc
+
+result.png
+result.csv
+
+.*
+!.gitignore
+

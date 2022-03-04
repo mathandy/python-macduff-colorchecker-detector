@@ -18,31 +18,17 @@ from math import sqrt
 from sys import stderr, argv
 from copy import copy
 import os
-
-
-_root = os.path.dirname(os.path.realpath(__file__))
+import argparse
 
 
 # Each color square must takes up more than this percentage of the image
 MIN_RELATIVE_SQUARE_SIZE = 0.0001
-
-DEBUG = False
 
 MACBETH_WIDTH = 6
 MACBETH_HEIGHT = 4
 MACBETH_SQUARES = MACBETH_WIDTH * MACBETH_HEIGHT
 
 MAX_CONTOUR_APPROX = 50  # default was 7
-
-
-# pick the colorchecker values to use -- several options available in
-# the `color_data` subdirectory
-# Note: all options are explained in detail at
-# http://www.babelcolor.com/colorchecker-2.htm
-color_data = os.path.join(_root, 'color_data',
-                          'xrite_passport_colors_sRGB-GMB-2005.csv')
-expected_colors = np.flip(np.loadtxt(color_data, delimiter=','), 1)
-expected_colors = expected_colors.reshape(MACBETH_HEIGHT, MACBETH_WIDTH, 3)
 
 
 # a class to simplify the translation from c++
@@ -116,9 +102,9 @@ def rotate_box(box_corners):
     return np.roll(box_corners, 1, 0)
 
 
-def check_colorchecker(values, expected_values=expected_colors):
+def check_colorchecker(values, expected_colors):
     """Find deviation of colorchecker `values` from expected values."""
-    diff = (values - expected_values).ravel(order='K')
+    diff = (values - expected_colors).ravel(order='K')
     return sqrt(np.dot(diff, diff))
 
 
@@ -129,11 +115,13 @@ def check_colorchecker(values, expected_values=expected_colors):
 #     return check_colorchecker(lab_values, lab_expected)
 
 
-def draw_colorchecker(colors, centers, image, radius):
+def draw_colorchecker(colors, centers, image, radius, expected_colors):
     for observed_color, expected_color, pt in zip(colors.reshape(-1, 3),
                                                   expected_colors.reshape(-1, 3),
                                                   centers.reshape(-1, 2)):
         x, y = pt
+        x = int(x)
+        y = int(y)
         cv.circle(image, (x, y), radius//2, expected_color.tolist(), -1)
         cv.circle(image, (x, y), radius//4, observed_color.tolist(), -1)
     return image
@@ -147,8 +135,8 @@ class ColorChecker:
         self.size = size
 
 
-def find_colorchecker(boxes, image, debug_filename=None, use_patch_std=True,
-                      debug=DEBUG):
+def find_colorchecker(boxes, image, expected_colors, debug_filename=None, use_patch_std=True,
+                      debug=False):
 
     points = np.array([[box.center[0], box.center[1]] for box in boxes])
     passport_box = cv.minAreaRect(points.astype('float32'))
@@ -216,8 +204,8 @@ def find_colorchecker(boxes, image, debug_filename=None, use_patch_std=True,
         cv.imwrite(debug_filename, np.vstack(debug_images))
 
     # determine which orientation has lower error
-    orient_1_error = check_colorchecker(patch_values)
-    orient_2_error = check_colorchecker(patch_values[::-1, ::-1])
+    orient_1_error = check_colorchecker(patch_values, expected_colors)
+    orient_2_error = check_colorchecker(patch_values[::-1, ::-1], expected_colors)
 
     if orient_1_error > orient_2_error:  # rotate by 180 degrees
         patch_values = patch_values[::-1, ::-1]
@@ -338,8 +326,17 @@ def find_quad(src_contour, min_size, debug_image=None):
     return None
 
 
-def find_macbeth(img, patch_size=None, is_passport=False, debug=DEBUG,
-                 min_relative_square_size=MIN_RELATIVE_SQUARE_SIZE):
+def find_macbeth(img, patch_size=None, is_passport=False, debug=False,
+                 min_relative_square_size=MIN_RELATIVE_SQUARE_SIZE,adaptive_threshold_c=6,color_data_file='xrite_passport_colors_sRGB-GMB-2005.csv'):
+    # pick the colorchecker values to use -- several options available in
+    # the `color_data` subdirectory
+    # Note: all options are explained in detail at
+    # http://www.babelcolor.com/colorchecker-2.htm
+    _root = os.path.dirname(os.path.realpath(__file__))
+    color_data = os.path.join(_root, 'color_data', color_data_file)   # xrite_video_colors
+    expected_colors = np.flip(np.loadtxt(color_data, delimiter=','), 1)
+    expected_colors = expected_colors.reshape(MACBETH_HEIGHT, MACBETH_WIDTH, 3)
+
     macbeth_img = img
     if isinstance(img, str):
         macbeth_img = cv.imread(img)
@@ -355,7 +352,7 @@ def find_macbeth(img, patch_size=None, is_passport=False, debug=DEBUG,
                                     cv.ADAPTIVE_THRESH_MEAN_C,
                                     cv.THRESH_BINARY_INV,
                                     block_size,
-                                    C=6)
+                                    C=adaptive_threshold_c)
         macbeth_split_thresh.append(res)
     adaptive = np.bitwise_or(*macbeth_split_thresh)
 
@@ -470,7 +467,7 @@ def find_macbeth(img, patch_size=None, is_passport=False, debug=DEBUG,
             partitioned_checkers = []
             for cluster_boxes, fn in zip(partitioned_boxes, debug_fns):
                 partitioned_checkers.append(
-                    find_colorchecker(cluster_boxes, macbeth_original, fn,
+                    find_colorchecker(cluster_boxes, macbeth_original, expected_colors, fn,
                                       debug=debug))
 
             # use the colorchecker with the lowest error
@@ -484,14 +481,15 @@ def find_macbeth(img, patch_size=None, is_passport=False, debug=DEBUG,
                 print("\n", file=stderr)
 
             found_colorchecker = \
-                find_colorchecker(initial_boxes, macbeth_original, debug_img,
+                find_colorchecker(initial_boxes, macbeth_original, expected_colors, debug_img,
                                   debug=debug)
 
         # render the found colorchecker
         draw_colorchecker(found_colorchecker.values,
                           found_colorchecker.points,
                           macbeth_img,
-                          found_colorchecker.size)
+                          found_colorchecker.size,
+                          expected_colors)
 
         # print out the colorchecker info
         for color, pt in zip(found_colorchecker.values.reshape(-1, 3),
@@ -509,9 +507,10 @@ def find_macbeth(img, patch_size=None, is_passport=False, debug=DEBUG,
 
 
 def write_results(colorchecker, filename=None):
-    mes = ',r,g,b\n'
-    for k, (b, g, r) in enumerate(colorchecker.values.reshape(1, 3)):
-        mes += '{},{},{},{}\n'.format(k, r, g, b)
+    mes = ',r,g,b,x1,y1,diameter\n'
+    reshaped_points = colorchecker.points.reshape(-1,2)
+    for k, (b, g, r) in enumerate(colorchecker.values.reshape(-1, 3)):
+        mes += '{0:d},{1:f},{2:f},{3:f},{4:f},{5:f},{6:f}\n'.format(k, r, g, b, reshaped_points[k][0], reshaped_points[k][1], colorchecker.size)
 
     if filename is None:
         print(mes)
@@ -519,15 +518,24 @@ def write_results(colorchecker, filename=None):
         with open(filename, 'w+') as f:
             f.write(mes)
 
+parser = argparse.ArgumentParser(description='Find the Macbeth color checker in an image')
+parser.add_argument('--input_image',help='image on which a color checker can be found',type=str)
+parser.add_argument('--output_image',help='image on which to print the located checker points',type=str)
+parser.add_argument('--output_coord_file',help='output csv file where the coordinates will be written',type=str,default=None)
+parser.add_argument('--color_data_file',help='name of the color data file corresponding to the checker to find',type=str,default='xrite_passport_colors_sRGB-GMB-2005.csv')
+parser.add_argument('--adaptive_threshold_c',help='c value for cv.adaptiveThreshold',type=int,default=6)
+parser.add_argument('--patch_size',help='estimated patch size',type=int,default=None)
+parser.add_argument('--debug',help='run in debug mode',type=bool,default=False)
+
 
 if __name__ == '__main__':
-    if len(argv) == 3:
-        out, colorchecker = find_macbeth(argv[1])
-        cv.imwrite(argv[2], out)
-    elif len(argv) == 4:
-        out, colorchecker = find_macbeth(argv[1], patch_size=float(argv[3]))
-        cv.imwrite(argv[2], out)
-    else:
-        print('Usage: %s <input_image> <output_image> <(optional) patch_size>\n'
-              '' % argv[0], file=stderr)
-    # write_results(colorchecker, 'results.csv')
+    args = parser.parse_args()
+    assert args.input_image != None, 'Input image file must be supplied'
+    assert args.output_image != None, 'Output image file must be supplied'
+    
+    out, colorchecker = find_macbeth(args.input_image, patch_size=args.patch_size, is_passport=False, debug=args.debug, 
+        min_relative_square_size=MIN_RELATIVE_SQUARE_SIZE, adaptive_threshold_c=args.adaptive_threshold_c, color_data_file=args.color_data_file)
+    cv.imwrite(args.output_image, out)
+
+    if args.output_coord_file != None:
+        write_results(colorchecker, args.output_coord_file)

@@ -332,8 +332,14 @@ def find_macbeth(img, patch_size=None, is_passport=False, debug=False,
     # the `color_data` subdirectory
     # Note: all options are explained in detail at
     # http://www.babelcolor.com/colorchecker-2.htm
-    _root = os.path.dirname(os.path.realpath(__file__))
-    color_data = os.path.join(_root, 'color_data', color_data_file)   # xrite_video_colors
+    color_data = color_data_file
+    if not os.path.isfile(color_data) :
+        _root = os.path.dirname(os.path.realpath(__file__))
+        color_data = os.path.join(_root, 'color_data', color_data_file)
+
+    if not os.path.isfile(color_data) :
+        raise Exception('Color data file not found', color_data_file)
+
     expected_colors = np.flip(np.loadtxt(color_data, delimiter=','), 1)
     expected_colors = expected_colors.reshape(MACBETH_HEIGHT, MACBETH_WIDTH, 3)
 

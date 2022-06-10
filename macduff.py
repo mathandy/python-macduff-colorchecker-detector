@@ -324,11 +324,12 @@ def find_quad(src_contour, min_size, debug_image=None):
             is_acceptable_quad = True
             # return dst_contour
     if debug_image is not None:
-        cv.drawContours(debug_image, [src_contour], -1, (255, 0, 0), 1)
+        line_w = get_debug_line_w(debug_image)
+        cv.drawContours(debug_image, [src_contour], -1, (255, 0, 0), line_w)
         if is_acceptable_quad:
-            cv.drawContours(debug_image, [dst_contour], -1, (0, 255, 0), 1)
+            cv.drawContours(debug_image, [dst_contour], -1, (0, 255, 0), line_w)
         elif is_quad:
-            cv.drawContours(debug_image, [dst_contour], -1, (0, 0, 255), 1)
+            cv.drawContours(debug_image, [dst_contour], -1, (0, 0, 255), line_w)
         return debug_image
 
     if is_acceptable_quad:
@@ -522,6 +523,8 @@ def find_macbeth(img, patch_size=None, is_passport=False, debug=False,
                 best_colorchecker = extracted_colorchecker
 
     if best_colorchecker:
+        print('Best Open Element Size: {0:d}\nBest Adaptive Threshold C: {1:d}\n'.format(best_extraction_args[0], best_extraction_args[1]))
+    
         if debug:
             extract_macbeth_squares(*best_extraction_args, True)
 

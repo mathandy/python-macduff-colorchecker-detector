@@ -523,9 +523,8 @@ def find_macbeth(img, patch_size=None, is_passport=False, debug=False,
                 best_colorchecker = extracted_colorchecker
 
     if best_colorchecker:
-        print('Best Open Element Size: {0:d}\nBest Adaptive Threshold C: {1:d}\n'.format(best_extraction_args[0], best_extraction_args[1]))
-    
         if debug:
+            print('Best Open Element Size: {0:d}\nBest Adaptive Threshold C: {1:d}\n'.format(best_extraction_args[0], best_extraction_args[1]))
             extract_macbeth_squares(*best_extraction_args, True)
 
         # render the found colorchecker
